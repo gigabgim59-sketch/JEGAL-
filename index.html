@@ -2518,6 +2518,196 @@ const PHASE6_PERSON_NAMES = {
 })();
 
 
+/* ============================================================
+   Phase 11 : 두루마리(掛軸) 全景·快進 도구
+   ─────────────────────────────────────────────────────────
+   세로 두루마리는 SCROLL_DATA(160~425) × pxPerYear(9) = 약 2,500px
+   짜리 길고 가는 화폭이라, 한눈에 들어오지 않고 위·아래로 끝없이
+   끌어내려야 한다. 또 min-width:1000px가 걸려 좁은 화면에선
+   가로 스크롤까지 겹친다. 이를 풀기 위해:
+     1) view === "scroll" 일 때 .scroll-view 상단에 끈끈이 도구 막대를 부착
+     2) [한눈에 / 50% / 75% / 100%] 4단 축소·복귀
+     3) [後漢末·三國·西晉·東晉·淝水·末年] 시대 직행
+   * SVG의 width를 직접 px로 설정해 stylesheet의 min/max를 덮어쓴다.
+   * preserveAspectRatio="xMidYMin meet" 라서 width만 정하면 height는
+     viewBox 비율로 자동 결정된다.
+============================================================ */
+(function(){
+  // 1) SVG 좌표계 상수 (scrollHtml과 동일)
+  const SD_START = 160, PX_PER_YEAR = 9, PAD_T = 78;
+  const SVG_W_NAT = 1100;                 // viewBox width
+  const SVG_H_NAT = 78 + (425-160)*9 + 44; // ≈ 2507
+
+  // 2) 시대 빠른 이동 — (라벨, 도착年)
+  const JUMPS = [
+    ["後漢末",  166],
+    ["三國",   220],
+    ["西晉",   265],
+    ["東晉",   317],
+    ["淝水",   383],
+    ["末年",   420],
+  ];
+
+  // 3) 스타일 주입 (한 번만)
+  if(!document.getElementById("scrollbar-style")){
+    const st = document.createElement("style");
+    st.id = "scrollbar-style";
+    st.textContent = `
+      .scroll-toolbar{
+        position:sticky; top:0; z-index:50;
+        display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;
+        padding:9px 14px; margin:0 22px 10px;
+        background:rgba(244,236,216,.96);
+        border:1px solid var(--line); border-radius:2px;
+        backdrop-filter:blur(2px);
+        font-family:var(--serif);
+        box-shadow:0 2px 8px rgba(60,45,20,.10);
+      }
+      .stb-group{ display:flex; align-items:center; gap:4px; }
+      .stb-label{ font-family:var(--tc); font-size:11.5px; color:var(--seal); letter-spacing:.12em; font-weight:700; margin-right:3px; }
+      .stb-btn{
+        font-family:var(--serif); font-size:12px; padding:5px 9px;
+        background:transparent; border:1px solid var(--ink); color:var(--ink-soft);
+        border-radius:2px; cursor:pointer; letter-spacing:.02em; transition:.13s;
+      }
+      .stb-btn:hover{ background:rgba(0,0,0,.05); color:var(--ink); }
+      .stb-btn.on{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+      .stb-sep{ width:1px; height:18px; background:var(--line); margin:0 2px; }
+      @media (max-width:560px){
+        .scroll-toolbar{ margin:0 16px 10px; padding:7px 10px; gap:5px 7px; }
+        .stb-btn{ font-size:11px; padding:4px 7px; }
+        .stb-label{ font-size:10.5px; }
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  // 4) 현 scale 값을 SVG에 반영
+  let currentScale = 1;
+  function applyScale(s){
+    const svg = document.querySelector(".scroll-svg-v");
+    if(!svg) return;
+    currentScale = s;
+    if(s === "fit"){
+      // 「한눈에」: 뷰포트 높이에 SVG 전체가 들어오도록 폭을 줄인다
+      const vh = Math.max(window.innerHeight - 200, 360);
+      const ratio = vh / SVG_H_NAT;       // 높이 기준 축소율
+      const w = SVG_W_NAT * ratio;
+      svg.style.width = w + "px";
+      svg.style.minWidth = "0";
+      svg.style.maxWidth = "none";
+      svg.style.margin = "0 auto";
+    } else {
+      const w = SVG_W_NAT * s;
+      svg.style.width = w + "px";
+      svg.style.minWidth = "0";
+      svg.style.maxWidth = "none";
+      svg.style.margin = "0 auto";
+    }
+    // 활성 버튼 표시
+    document.querySelectorAll(".stb-zoom").forEach(b=>{
+      b.classList.toggle("on", b.dataset.scale === String(s));
+    });
+  }
+
+  // 5) 특정 年으로 page 스크롤
+  function jumpToYear(year){
+    const svg = document.querySelector(".scroll-svg-v");
+    if(!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const svgTopAbs = rect.top + window.scrollY;
+    // 실제 그려진 폭으로부터 현 scale 환산
+    const scale = rect.width / SVG_W_NAT;
+    const yInSvg = (PAD_T + (year - SD_START) * PX_PER_YEAR) * scale;
+    // 도구 막대(끈끈이) 높이 만큼 여유
+    const toolbar = document.querySelector(".scroll-toolbar");
+    const tbH = toolbar ? toolbar.getBoundingClientRect().height : 0;
+    window.scrollTo({ top: svgTopAbs + yInSvg - tbH - 12, behavior:"smooth" });
+  }
+
+  // 6) 도구 막대 HTML
+  function buildToolbar(){
+    const zoom = [
+      ["한눈에", "fit"],
+      ["50%",   "0.5"],
+      ["75%",   "0.75"],
+      ["100%",  "1"],
+    ];
+    const z = zoom.map(([t,v])=>`<button class="stb-btn stb-zoom" data-scale="${v}">${t}</button>`).join("");
+    const j = JUMPS.map(([t,y])=>`<button class="stb-btn stb-jump" data-year="${y}">${t}</button>`).join("");
+    return `
+      <div class="scroll-toolbar" id="scrollToolbar">
+        <span class="stb-group"><span class="stb-label">縮</span>${z}</span>
+        <span class="stb-sep"></span>
+        <span class="stb-group"><span class="stb-label">時代</span>${j}</span>
+      </div>`;
+  }
+
+  // 7) view === "scroll" 진입 시 도구 막대 삽입 + 이벤트 매기
+  function install(){
+    if(typeof view === "undefined" || view !== "scroll") return;
+    const sv = document.querySelector(".scroll-view");
+    if(!sv) return;
+
+    // (선택) 思想 영역 제거 — 원본 scrollHtml은 손대지 않고 DOM에서만 걷어낸다
+    //   ① 사상 범례 통째로 삭제
+    const legend = sv.querySelector(".thought-legend");
+    if(legend) legend.remove();
+    //   ② SVG 안의 思想 띠·라벨·한글 부제 삭제
+    sv.querySelectorAll(".scroll-svg-v .thought-band, .scroll-svg-v .thought-label, .scroll-svg-v .thought-ko")
+      .forEach(n=> n.remove());
+    //   ③ "思想" 列 헤더(맨 위) 삭제 — col-header text 중 내용이 "思想"인 것만
+    sv.querySelectorAll(".scroll-svg-v text.col-header").forEach(t=>{
+      if((t.textContent||"").trim() === "思想") t.remove();
+    });
+
+    if(sv.querySelector(".scroll-toolbar")) return;  // 중복 방지
+
+    // .scroll-head 바로 다음에 끼운다 (없으면 맨 앞)
+    const head = sv.querySelector(".scroll-head");
+    const tmp = document.createElement("div");
+    tmp.innerHTML = buildToolbar().trim();
+    const bar = tmp.firstChild;
+    if(head && head.nextSibling) sv.insertBefore(bar, head.nextSibling);
+    else sv.insertBefore(bar, sv.firstChild);
+
+    // 이벤트
+    bar.querySelectorAll(".stb-zoom").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const v = b.dataset.scale;
+        applyScale(v === "fit" ? "fit" : parseFloat(v));
+      });
+    });
+    bar.querySelectorAll(".stb-jump").forEach(b=>{
+      b.addEventListener("click", ()=> jumpToYear(parseInt(b.dataset.year,10)));
+    });
+
+    // 기본 100%로 표시 (단, 좁은 화면에선 「한눈에」가 더 친절)
+    const startScale = (window.innerWidth < 700) ? "fit" : 1;
+    applyScale(startScale);
+  }
+
+  // 8) render 후 매번 install (다른 view로 떠나면 자연히 사라진다)
+  if(typeof render !== "function"){
+    console.warn("[Phase 11] render 가 없어 중단");
+    return;
+  }
+  const _orig = render;
+  render = function(picks){
+    _orig(picks);
+    setTimeout(install, 0);
+  };
+
+  // 9) 윈도우 크기 변경 시 「한눈에」 재계산
+  window.addEventListener("resize", ()=>{
+    if(typeof view === "undefined" || view !== "scroll") return;
+    if(currentScale === "fit") applyScale("fit");
+  });
+
+  console.log("[Phase 11] 두루마리 도구 막대 작동 중");
+})();
+
+
 render([]);
 </script>
 </body>
