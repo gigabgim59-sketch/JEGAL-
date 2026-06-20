@@ -1133,7 +1133,7 @@ function render(picks){
         <button class="draw${randomSubMode==="chapter"?" on":""}" id="rndChapBtn">三十六篇에서 제시</button>
         <button class="draw${randomSubMode==="topic"?" on":""}" id="rndTopicBtn">주제에서 제시</button>
         <button class="draw${randomSubMode==="person"?" on":""}" id="rndPersonBtn">인물에서 제시</button>
-        <button class="draw" id="drawBtn">${picks&&picks.length&&!randomSubMode?"다시 뽑기":"무작위로 제시 (뽑기)"}</button>
+        <button class="draw" id="drawBtn">${picks&&picks.length&&!randomSubMode?"다시 뽑기":"무작위로 제시"}</button>
       </div>
     </div>`;
     if(randomSubMode==="chapter"){
