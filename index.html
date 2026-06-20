@@ -2307,139 +2307,202 @@ const PHASE6_PERSON_NAMES = {
 (function(){
   // 1) 자료 정의 ── 각 항목의 thumb은 Special:FilePath(영구 redirect)를
   //    사용해 파일명만으로도 항상 최신 경로로 解析되도록 한다.
-  // Wikimedia Special:FilePath 는 파일명만으로 영구적으로 圖에 解析된다.
-  // 단 작은따옴표·en-dash·한자 등이 들어가므로 반드시 encodeURIComponent.
-  const fp = name => "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(name);
-  const ATLAS = [
-    {
-      era: "後漢末",
-      han: "後漢 末年",
-      ko:  "후한 말 (군웅할거, 약 190–220)",
-      desc:"황건의 난 이후 13주의 분열상. 조조의 북방 평정 과정(200–207)을 보여주는 지도로, 원소·여포·유표 등 군웅의 세력권을 함께 살핀다.",
-      thumb: fp("Cao Cao's conquest of northern China 200–207.png"),
-      link:  "https://en.wikipedia.org/wiki/End_of_the_Han_dynasty",
-      linkLabel:"Wikipedia · End of the Han dynasty"
-    },
-    {
-      era: "三國",
-      han: "三國 鼎立 (220–280)",
-      ko:  "삼국 정립도",
-      desc:"魏·蜀·吳 三國의 강역. 세설신어 「德行」·「言語」 도입부 인물(管寧·華歆·鍾會·嵇康 등)이 활동한 무대다.",
-      thumb: fp("The Three Kingdoms 220-265 280 AD.jpg"),
-      link:  "https://en.wikipedia.org/wiki/Three_Kingdoms",
-      linkLabel:"Wikipedia · Three Kingdoms"
-    },
-    {
-      era: "西晉",
-      han: "西晉 統一 (280)",
-      ko:  "서진의 통일",
-      desc:"晉武帝 太康 元年(280) 吳 평정으로 천하가 다시 하나가 된 시기의 강역도. 八王의 亂 직전 19州 체제를 본다.",
-      thumb: fp("Western Jeun Dynasty 280 CE.png"),
-      link:  "https://en.wikipedia.org/wiki/Jin_dynasty_(266%E2%80%93420)",
-      linkLabel:"Wikipedia · Jin dynasty (266–420)"
-    },
-    {
-      era: "東晉",
-      han: "東晉 (376)",
-      ko:  "동진의 강역",
-      desc:"永嘉의 亂 뒤 司馬睿가 建康에서 즉위해 江南에 세운 동진의 강역. 세설신어의 무대 大半이 여기다.",
-      thumb: fp("Eastern Jin Dynasty 376 CE.png"),
-      link:  "https://en.wikipedia.org/wiki/Eastern_Jin",
-      linkLabel:"Wikipedia · Eastern Jin"
-    },
-    {
-      era: "十六國",
-      han: "五胡 十六國",
-      ko:  "오호 십육국 (304–439)",
-      desc:"북방을 갈라 다스린 諸胡의 십육국. 前趙·後趙·前燕·前秦·後秦·北涼 등의 변천을 한 장에 담은 도표 지도.",
-      thumb: fp("Map of Sixteen Kingdoms 5.png"),
-      link:  "https://en.wikipedia.org/wiki/Sixteen_Kingdoms",
-      linkLabel:"Wikipedia · Sixteen Kingdoms"
-    },
-    {
-      era: "淝水",
-      han: "淝水之戰 (383)",
-      ko:  "비수의 전투 전후 형세도",
-      desc:"前秦 苻堅의 백만대군을 謝玄·謝石의 北府兵 八萬이 격파한 결전. 「言語·雅量·排調」 등에 그 餘香이 짙다.",
-      thumb: fp("淝水之战前后形势图.PNG"),
-      link:  "https://en.wikipedia.org/wiki/Battle_of_Fei_River",
-      linkLabel:"Wikipedia · Battle of Fei River"
-    },
-    {
-      era: "總覽",
-      han: "歷史地圖 분류 모음",
-      ko:  "위·진 시대 지도 분류 페이지",
-      desc:"위진 시기를 포함한 시대별 강역·州郡·교통로를 비교하려면, 譚其驤 主編 『中國歷史地圖集』 第三·四冊이 정본이다. Wikimedia의 분류 페이지에서 다수의 관련 지도를 모아 볼 수 있다.",
-      thumb: null,
-      link:  "https://commons.wikimedia.org/wiki/Category:Maps_of_the_Jin_Dynasty_(266-420)",
-      linkLabel:"Wikimedia Commons · 진대 지도 분류"
-    }
+  // ── 1) 자료 ──────────────────────────────────────────
+  // viewBox(980×680) 위의 대강 위치 (정확한 강역도 아님)
+  // x = (lon - 100) × 42 + 30,  y = (40 - lat) × 37 + 70 정도로 환산했으나
+  // 라벨 가독성을 위해 일부는 미세 조정.
+  // link 가 있으면 클릭 시 六門百科의 해당 자리로 이동(jumpToObject).
+  // anchor:"end" 이면 라벨을 왼쪽으로 단다.
+  const CITIES = [
+    { x:420, y:215, han:"平陽", ko:"평양", cap:true, link:"person.劉聰"           },
+    { x:559, y:202, han:"鄴",   ko:"업",   cap:true                               },
+    { x:473, y:268, han:"洛陽", ko:"낙양", cap:true, link:"event.永嘉의 亂", anchor:"end" },
+    { x:346, y:283, han:"長安", ko:"장안", cap:true                               },
+    { x:519, y:298, han:"許昌", ko:"허창"                                          },
+    { x:618, y:350, han:"壽春", ko:"수춘",                                  anchor:"end" },
+    { x:735, y:348, han:"廣陵", ko:"광릉",            link:"institution.BeiFuBing" },
+    { x:735, y:374, han:"京口", ko:"경구",            link:"institution.BeiFuBing" },
+    { x:692, y:402, han:"建康", ko:"건강", cap:true,  link:"event.DongJinFound",
+                                                                          anchor:"end" },
+    { x:537, y:430, han:"武昌", ko:"무창",            link:"person.王敦"          },
+    { x:455, y:438, han:"江陵", ko:"강릉",                                  anchor:"end" },
+    { x:455, y:380, han:"襄陽", ko:"양양",                                  anchor:"end" },
+    { x:178, y:425, han:"成都", ko:"성도"                                          },
+    { x:770, y:455, han:"山陰", ko:"산음",            link:"event.LanTing"        },
+  ];
+  const EVENTS = [
+    { x:638, y:374, han:"淝水", ko:"비수",            link:"event.淝水大戰"       },
+    { x:692, y:425, han:"新亭", ko:"신정",            link:"person.王導",   anchor:"end" },
+  ];
+  // 산: vertical=true 면 縱走 산맥(태항산처럼)으로 봉우리 3단을 그린다.
+  const MOUNTAINS = [
+    { x:500, y:245, han:"太行山", ko:"태항산", vertical:true },
+    { x:260, y:312, han:"秦嶺",   ko:"진령"   },
+    { x:602, y:475, han:"廬山",   ko:"여산"   },
+    { x:790, y:495, han:"會稽山", ko:"회계산" },
+    { x:820, y:540, han:"天台山", ko:"천태산" },
   ];
 
-  // 2) 스타일 주입 (한 번만)
+  // ── 2) 스타일 ─────────────────────────────────────────
   if(!document.getElementById("atlas-style")){
     const st = document.createElement("style");
     st.id = "atlas-style";
     st.textContent = `
       .atlas-head{font-family:var(--tc);font-size:20px;font-weight:700;letter-spacing:.14em;color:var(--ink);margin:6px 0 4px;text-align:center;}
-      .atlas-sub{font-family:var(--serif);font-size:13px;color:var(--ink-soft);text-align:center;margin:0 0 22px;font-style:italic;letter-spacing:.02em;}
-      .atlas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin:18px 0 8px;}
-      .atlas-card{background:linear-gradient(180deg,var(--paper-2),var(--paper));border:1px solid var(--line);border-left:4px solid var(--seal);border-radius:2px;padding:16px 18px 18px;box-shadow:0 1px 0 rgba(255,255,255,.5) inset,2px 3px 10px rgba(60,45,20,.10);display:flex;flex-direction:column;gap:10px;animation:rise .5s ease both;}
-      .atlas-era{font-family:var(--tc);font-size:12.5px;font-weight:700;letter-spacing:.14em;color:var(--seal);}
-      .atlas-han{font-family:var(--tc);font-size:18px;font-weight:700;letter-spacing:.06em;color:var(--ink);margin:0;}
-      .atlas-ko{font-family:var(--serif);font-size:13px;color:var(--ink-soft);margin:0;letter-spacing:.01em;}
-      .atlas-thumb{display:block;width:100%;height:170px;object-fit:contain;background:rgba(255,255,255,.45);border:1px solid var(--line);border-radius:2px;cursor:zoom-in;}
-      .atlas-noimg{display:flex;align-items:center;justify-content:center;width:100%;height:120px;background:rgba(255,255,255,.35);border:1px dashed var(--line);border-radius:2px;font-family:var(--tc);font-size:13px;color:var(--ink-soft);letter-spacing:.06em;text-align:center;padding:0 14px;}
-      .atlas-desc{font-family:var(--serif);font-size:13.5px;line-height:1.85;color:var(--ink);margin:0;text-align:justify;letter-spacing:.005em;}
-      .atlas-link{display:inline-block;align-self:flex-start;font-family:var(--serif);font-size:12.5px;padding:7px 14px;background:transparent;border:1.5px solid var(--ink);border-radius:2px;color:var(--ink);text-decoration:none;letter-spacing:.02em;transition:.15s;}
-      .atlas-link:hover{background:var(--ink);color:var(--paper);}
-      .atlas-foot{margin:26px 0 0;padding:14px 0 0;border-top:1px solid var(--line);font-family:var(--serif);font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.8;letter-spacing:.01em;font-style:italic;}
-      .atlas-modal{position:fixed;inset:0;background:rgba(20,15,10,.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;cursor:zoom-out;}
-      .atlas-modal img{max-width:96vw;max-height:92vh;background:#fff;border:2px solid var(--paper);box-shadow:0 8px 30px rgba(0,0,0,.5);}
-      .atlas-modal .am-close{position:fixed;top:14px;right:18px;font-family:var(--tc);font-size:24px;color:var(--paper);background:transparent;border:none;cursor:pointer;letter-spacing:.05em;}
+      .atlas-sub{font-family:var(--serif);font-size:13px;color:var(--ink-soft);text-align:center;margin:0 0 16px;font-style:italic;letter-spacing:.02em;}
+      .atlas-map-wrap{margin:8px auto 6px;background:linear-gradient(180deg,#f3ead2,#ebe0c0);border:1px solid var(--line);border-radius:2px;padding:14px 14px 10px;box-shadow:0 2px 8px rgba(60,45,20,.10);max-width:1000px;}
+      .atlas-map{display:block;width:100%;height:auto;}
+      .am-sea{fill:#d8e1d4;opacity:.55;}
+      .am-coast{stroke:#7d8273;stroke-width:.7;fill:none;opacity:.55;}
+      .am-river{fill:none;stroke:#946b3b;stroke-linecap:round;opacity:.6;}
+      .am-river-major{stroke-width:3.6;opacity:.7;}
+      .am-river-minor{stroke-width:1.8;opacity:.5;}
+      .am-river-label{font-family:var(--tc);font-size:13px;fill:#946b3b;font-weight:700;letter-spacing:.1em;}
+      .am-river-label.minor{font-size:11px;opacity:.8;}
+      .am-mt{fill:none;stroke:var(--ink-soft);stroke-width:1.3;opacity:.6;stroke-linecap:round;stroke-linejoin:round;}
+      .am-mt-label{font-family:var(--tc);font-size:11.5px;fill:var(--ink-soft);font-style:italic;letter-spacing:.05em;}
+      .am-city.clickable{cursor:pointer;}
+      .am-city-dot{fill:var(--ink);}
+      .am-city-cap-square{fill:var(--seal);stroke:var(--ink);stroke-width:1.2;}
+      .am-city-han{font-family:var(--tc);font-size:14px;font-weight:700;fill:var(--ink);letter-spacing:.05em;}
+      .am-city-han.cap{font-size:15.5px;fill:var(--seal);}
+      .am-city.clickable:hover .am-city-han{text-decoration:underline;}
+      .am-city-ko{font-family:var(--serif);font-size:10.5px;fill:var(--ink-soft);letter-spacing:.02em;}
+      .am-evt{cursor:pointer;}
+      .am-evt-mark{fill:none;stroke:var(--seal);stroke-width:1.6;}
+      .am-evt-label{font-family:var(--tc);font-size:12.5px;fill:var(--seal);font-style:italic;font-weight:700;letter-spacing:.04em;}
+      .am-evt:hover .am-evt-label{text-decoration:underline;}
+      .am-compass{font-family:var(--tc);font-size:17px;fill:var(--ink-soft);font-weight:700;}
+      .atlas-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin:8px 0 14px;font-family:var(--serif);font-size:12px;color:var(--ink-soft);letter-spacing:.02em;}
+      .atlas-legend .lg-item{display:inline-flex;align-items:center;gap:6px;}
+      .atlas-legend .lg-cap{width:10px;height:10px;background:var(--seal);border:1px solid var(--ink);display:inline-block;}
+      .atlas-legend .lg-city{width:7px;height:7px;background:var(--ink);border-radius:50%;display:inline-block;}
+      .atlas-legend .lg-evt{color:var(--seal);font-style:italic;}
+      .atlas-foot{margin:18px 0 0;padding:14px 0 0;border-top:1px solid var(--line);font-family:var(--serif);font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.8;letter-spacing:.01em;font-style:italic;}
     `;
     document.head.appendChild(st);
   }
 
-  // 3) HTML 생성
-  function renderAtlas(){
-    const cards = ATLAS.map(a=>{
-      const thumb = a.thumb
-        ? `<img class="atlas-thumb" loading="lazy" referrerpolicy="no-referrer"
-                src="${a.thumb}" alt="${a.han}"
-                onerror="this.outerHTML='<div class=&quot;atlas-noimg&quot;>지도 미리보기를 직접 표시할 수 없습니다.<br>아래 「자세히 보기」로 열람하십시오.</div>'">`
-        : `<div class="atlas-noimg">外部 자료 모음 · 아래 링크로 이동</div>`;
-      return `
-        <div class="atlas-card">
-          <div class="atlas-era">${a.era}</div>
-          <h3 class="atlas-han">${a.han}</h3>
-          <p class="atlas-ko">${a.ko}</p>
-          ${thumb}
-          <p class="atlas-desc">${a.desc}</p>
-          <a class="atlas-link" href="${a.link}" target="_blank" rel="noopener noreferrer">▸ ${a.linkLabel}</a>
-        </div>`;
-    }).join("");
-
-    return `
-      <div class="atlas-head">輿 地 圖</div>
-      <p class="atlas-sub">세설신어가 비춘 시대 ─ 後漢 末에서 東晉에 이르는 강역을 살피다</p>
-      <div class="atlas-grid">${cards}</div>
-      <div class="atlas-foot">
-        本 화면의 지도 자료는 Wikimedia Commons 및 Wikipedia에 공개된 것을 가리킨다.<br>
-        썸네일을 클릭하면 확대되며, 「자세히 보기」는 새 창에서 열린다.
-      </div>`;
+  // ── 3) 헬퍼: 마커 생성 ────────────────────────────────
+  function cityMarker(c){
+    const linkAttr = c.link ? ` data-objid="${c.link}"` : "";
+    const linkCls  = c.link ? " clickable" : "";
+    const left     = c.anchor === "end";
+    const tx       = left ? "end" : "start";
+    const dx       = left ? -9 : 9;
+    const inner    = c.cap
+      ? `<rect class="am-city-cap-square" x="-6" y="-6" width="12" height="12"/>
+         <circle cx="0" cy="0" r="2.2" fill="#fff"/>`
+      : `<circle class="am-city-dot" cx="0" cy="0" r="3.5"/>`;
+    const hanCls   = "am-city-han" + (c.cap ? " cap" : "");
+    return `<g class="am-city${linkCls}"${linkAttr} transform="translate(${c.x},${c.y})">
+      ${inner}
+      <text class="${hanCls}" x="${dx}" y="-2" text-anchor="${tx}">${c.han}</text>
+      <text class="am-city-ko" x="${dx}" y="10" text-anchor="${tx}">${c.ko}</text>
+    </g>`;
+  }
+  function eventMarker(e){
+    const linkAttr = e.link ? ` data-objid="${e.link}"` : "";
+    const left     = e.anchor === "end";
+    const tx       = left ? "end" : "start";
+    const dx       = left ? -8 : 8;
+    return `<g class="am-evt"${linkAttr} transform="translate(${e.x},${e.y})">
+      <path class="am-evt-mark" d="M -5,0 L 5,0 M 0,-5 L 0,5 M -3.5,-3.5 L 3.5,3.5 M -3.5,3.5 L 3.5,-3.5"/>
+      <text class="am-evt-label" x="${dx}" y="4" text-anchor="${tx}">${e.han} ${e.ko}</text>
+    </g>`;
+  }
+  function mtMarker(m){
+    if(m.vertical){
+      // 縱走山脈: 위·중·아래에 3봉(峰) 묶음
+      const peaks = (cy)=>{
+        const x = m.x;
+        return `<path class="am-mt" d="M ${x-13},${cy} l 6,-11 l 6,11 m -3,0 l 6,-13 l 6,13 m -3,0 l 6,-10 l 6,10"/>`;
+      };
+      return `<g>
+        ${peaks(m.y-46)}
+        ${peaks(m.y)}
+        ${peaks(m.y+46)}
+        <text class="am-mt-label" x="${m.x+22}" y="${m.y+4}">${m.han} ${m.ko}</text>
+      </g>`;
+    }
+    return `<g>
+      <path class="am-mt" d="M ${m.x-12},${m.y} l 6,-11 l 6,11 m -3,0 l 6,-13 l 6,13 m -3,0 l 6,-10 l 6,10"/>
+      <text class="am-mt-label" x="${m.x-8}" y="${m.y+17}">${m.han} ${m.ko}</text>
+    </g>`;
   }
 
-  // 4) 클릭 확대 모달
+  // ── 4) SVG 구성 ────────────────────────────────────
+  function buildMapSVG(){
+    return `
+<svg class="atlas-map" viewBox="0 0 980 680" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-label="魏晉 시기 지도">
+  <!-- 바다 (동쪽 가장자리) -->
+  <path class="am-sea"   d="M 830,30 Q 870,170 830,300 Q 800,400 850,500 Q 860,600 820,680 L 980,680 L 980,30 Z"/>
+  <path class="am-coast" d="M 830,30 Q 870,170 830,300 Q 800,400 850,500 Q 860,600 820,680"/>
+
+  <!-- 黃河 -->
+  <path class="am-river am-river-major" d="M 30,225 Q 130,195 230,205 Q 320,215 410,210 Q 470,205 530,225 Q 600,240 680,232 Q 750,225 830,250"/>
+  <text class="am-river-label" x="60" y="195">黃河</text>
+
+  <!-- 渭水 (長安 평원) -->
+  <path class="am-river am-river-minor" d="M 180,300 Q 250,290 340,285"/>
+  <text class="am-river-label minor" x="195" y="295">渭水</text>
+
+  <!-- 淮水 -->
+  <path class="am-river am-river-minor" d="M 360,335 Q 470,345 560,335 Q 660,330 770,348 Q 805,355 830,365"/>
+  <text class="am-river-label minor" x="380" y="328">淮水</text>
+
+  <!-- 漢水 -->
+  <path class="am-river am-river-minor" d="M 320,335 Q 380,365 430,400 Q 460,420 530,430"/>
+  <text class="am-river-label minor" x="345" y="358">漢水</text>
+
+  <!-- 長江 -->
+  <path class="am-river am-river-major" d="M 30,470 Q 110,475 178,432 Q 250,415 320,440 Q 400,448 463,440 Q 530,432 600,425 Q 660,415 700,410 Q 760,405 830,425"/>
+  <text class="am-river-label" x="60" y="495">長江</text>
+
+  <!-- 산 -->
+  ${MOUNTAINS.map(mtMarker).join("")}
+
+  <!-- 도시 -->
+  ${CITIES.map(cityMarker).join("")}
+
+  <!-- 사건의 자리 -->
+  ${EVENTS.map(eventMarker).join("")}
+
+  <!-- 나침반 -->
+  <g transform="translate(905,72)">
+    <text class="am-compass" text-anchor="middle">北</text>
+    <line x1="0" y1="8" x2="0" y2="30" stroke="var(--ink-soft)" stroke-width="1"/>
+    <path d="M -4,14 L 0,6 L 4,14 Z" fill="var(--ink-soft)"/>
+  </g>
+</svg>`;
+  }
+
+  // ── 5) renderAtlas ───────────────────────────────
+  function renderAtlas(){
+    return `
+      <div class="atlas-head">輿 地 圖</div>
+      <p class="atlas-sub">魏晉의 한 폭 ─ 黃河와 長江 사이, 세설신어의 무대</p>
+      <div class="atlas-map-wrap">${buildMapSVG()}</div>
+      <div class="atlas-legend">
+        <span class="lg-item"><span class="lg-cap"></span> 도읍 (平陽·鄴·洛陽·長安·建康)</span>
+        <span class="lg-item"><span class="lg-city"></span> 주요 성읍</span>
+        <span class="lg-item">▲ 산</span>
+        <span class="lg-item lg-evt">✕ 사건의 자리</span>
+      </div>
+      <p class="atlas-foot">
+        성읍과 사건의 자리에 표시된 라벨(굵은 검은색·붉은색)을 누르면 六門百科의 해당 자리로 이어집니다.<br>
+        도식은 위치 대강을 보이는 것이며, 정확한 강역도가 아닙니다.
+      </p>`;
+  }
+
+  // ── 6) 클릭 → 六門 이동 ───────────────────────────
+  //   SVG 의 <g data-objid="..."> 안에서 클릭이 일어나면(텍스트/도형 어느 자리든)
+  //   closest로 g를 찾아 jumpToObject 호출. Phase 9의 a.ref 핸들러와 충돌하지 않음.
   document.addEventListener("click", (e)=>{
-    const img = e.target.closest && e.target.closest(".atlas-thumb");
-    if(!img) return;
-    const m = document.createElement("div");
-    m.className = "atlas-modal";
-    m.innerHTML = `<button class="am-close" aria-label="닫기">✕ 닫기</button>
-                   <img src="${img.src}" alt="${img.alt||""}">`;
-    m.addEventListener("click", ()=> m.remove());
-    document.body.appendChild(m);
+    if(!e.target || !e.target.closest) return;
+    const g = e.target.closest("g[data-objid]");
+    if(!g) return;
+    if(typeof jumpToObject === "function") jumpToObject(g.dataset.objid);
   });
 
   // 5) navbar에 「輿地圖」 第七 버튼을 注入하고, view==="atlas" 일 때
@@ -2514,7 +2577,7 @@ const PHASE6_PERSON_NAMES = {
     }
   };
 
-  console.log("[Phase 10] 輿地圖 메뉴 작동 중 (자료 "+ATLAS.length+"건)");
+  console.log("[Phase 10] 輿地圖 메뉴 작동 중 — 한 폭 지도(도시 "+CITIES.length+"·산 "+MOUNTAINS.length+"·사건 "+EVENTS.length+")");
 })();
 
 
