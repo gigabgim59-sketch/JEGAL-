@@ -2708,6 +2708,226 @@ const PHASE6_PERSON_NAMES = {
 })();
 
 
+/* ============================================================
+   Phase 12 : 7개 메뉴를 3그룹으로 묶고, 표제(masthead) 숨김
+   ─────────────────────────────────────────────────────────
+   (1) 기존 7개 nav-btn을 보존하되 화면에서는 감춘다.
+       대신 위에 3개의 「그룹 버튼」을 놓는다.
+         展(펴기) — 序說 읽기 · 輿地圖 · 六門百科
+         探(찾기) — 三十六篇 · 주제로 찾기 · 인물로 찾기
+         籤(뽑기) — 무작위로 제시  (단일 항목, 바로 실행)
+       그룹을 누르면 하단에 그 그룹의 하위 버튼이 펼쳐진다.
+       하위 버튼 클릭은 숨겨진 원 버튼을 programmatic click → 기존
+       핸들러가 그대로 동작 (view 전이·render).
+   (2) 표제 .masthead 우상단에 × 버튼을 단다. 클릭하면 표제가
+       사라지고 그 자리에 「▸ 표제 다시 보기」 한 줄이 남는다.
+       선택은 localStorage 에 저장해 다음 방문에도 유지된다.
+   ─ 원본 markup / scrollHtml / prefaceHtml 은 손대지 않는다.
+============================================================ */
+(function(){
+  const GROUPS = [
+    { id:"g1", han:"展", label:"펴기", hint:"序說·輿地圖·六門",
+      items:["preface","atlas","liumen"] },
+    { id:"g2", han:"探", label:"찾기", hint:"三十六篇·主題·人物",
+      items:["chapter","topic","person"] },
+    { id:"g3", han:"籤", label:"뽑기", hint:"無作爲",
+      items:["random"], direct:true },
+  ];
+  let activeGroup = null;
+
+  // ── 1) 스타일 ─────────────────────────────────────
+  if(!document.getElementById("phase12-style")){
+    const st = document.createElement("style");
+    st.id = "phase12-style";
+    st.textContent = `
+      .groupbar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:22px 0 6px;}
+      .grp-btn{display:flex;flex-direction:column;align-items:center;gap:3px;
+        font-family:var(--serif);padding:13px 6px;background:transparent;
+        border:1.5px solid var(--ink);border-radius:2px;color:var(--ink);
+        cursor:pointer;transition:.15s;}
+      .grp-btn:hover{background:rgba(0,0,0,.04);}
+      .grp-btn.on{background:var(--ink);color:var(--paper);}
+      .grp-han{font-family:var(--tc);font-size:18px;font-weight:700;letter-spacing:.12em;}
+      .grp-label{font-size:11.5px;letter-spacing:.06em;opacity:.85;}
+      .subbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px;justify-content:center;
+        animation:rise .28s ease both;}
+      .sub-btn{font-family:var(--serif);font-size:13px;padding:8px 14px;background:transparent;
+        border:1.2px solid var(--line);border-radius:2px;color:var(--ink-soft);
+        cursor:pointer;transition:.13s;letter-spacing:.02em;}
+      .sub-btn:hover{background:rgba(0,0,0,.04);color:var(--ink);border-color:var(--ink-soft);}
+      .sub-btn.on{background:var(--seal);color:var(--paper);border-color:var(--seal);}
+      .masthead{position:relative;}
+      .masthead.mh-hidden{display:none;}
+      .masthead-close{position:absolute;top:6px;right:6px;width:22px;height:22px;
+        display:flex;align-items:center;justify-content:center;background:transparent;
+        border:1px solid var(--line);border-radius:2px;font-family:var(--serif);
+        font-size:14px;color:var(--ink-soft);cursor:pointer;line-height:1;padding:0;
+        transition:.13s;}
+      .masthead-close:hover{background:rgba(0,0,0,.05);color:var(--ink);border-color:var(--ink-soft);}
+      .masthead-restore{display:block;margin:0 0 14px;font-family:var(--serif);font-size:11.5px;
+        color:var(--ink-soft);background:transparent;border:none;cursor:pointer;
+        letter-spacing:.05em;text-decoration:underline dotted;opacity:.6;padding:2px 0;}
+      .masthead-restore:hover{opacity:1;color:var(--ink);}
+      @media(max-width:560px){
+        .grp-han{font-size:16px;}
+        .grp-label{font-size:10.5px;}
+        .sub-btn{font-size:12px;padding:7px 11px;}
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  // ── 2) 그룹 메뉴 설치 / 동기화 ──────────────────────
+  function installGroupBar(){
+    if(typeof entered !== "undefined" && !entered) return;
+    const nav = document.querySelector(".navbar");
+    if(!nav) return;
+    if(nav.parentNode.querySelector(".groupbar")) { syncBar(); return; }
+
+    nav.style.display = "none"; // 원 navbar는 숨김 (핸들러는 살아 있음)
+
+    const gb = document.createElement("div");
+    gb.className = "groupbar";
+    gb.innerHTML = GROUPS.map(g => `
+      <button class="grp-btn" data-grp="${g.id}" title="${g.hint}">
+        <span class="grp-han">${g.han}</span>
+        <span class="grp-label">${g.label}</span>
+      </button>`).join("");
+    nav.parentNode.insertBefore(gb, nav);
+
+    const sb = document.createElement("div");
+    sb.className = "subbar";
+    nav.parentNode.insertBefore(sb, nav);
+
+    gb.querySelectorAll(".grp-btn").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const grp = GROUPS.find(g=>g.id===b.dataset.grp);
+        if(grp.direct){
+          // 단일 항목 그룹(뽑기) — 곧장 실행
+          const tgt = nav.querySelector(`[data-view="${grp.items[0]}"]`);
+          if(tgt) tgt.click();
+          activeGroup = grp.id;
+          return;
+        }
+        // 펴기/찾기 ─ 항상 그 그룹의 첫 항목으로 진입.
+        //   그래야 직전이 '뽑기(random)' 였더라도 본문이 깨끗이
+        //   교체되고 randomSubMode 도 원래 핸들러에서 null이 된다.
+        //   같은 그룹을 재클릭해 첫 항목으로 되돌아가는 것도 동일 동작.
+        activeGroup = grp.id;
+        const tgt = nav.querySelector(`[data-view="${grp.items[0]}"]`);
+        if(tgt) tgt.click();
+      });
+    });
+    syncBar();
+  }
+
+  function syncBar(){
+    const gb = document.querySelector(".groupbar");
+    const sb = document.querySelector(".subbar");
+    const nav = document.querySelector(".navbar");
+    if(!gb || !sb || !nav) return;
+
+    // activeGroup 미지정이면 현재 view로부터 추론
+    if(activeGroup === null && typeof view !== "undefined" && view){
+      const found = GROUPS.find(g=>g.items.includes(view));
+      if(found) activeGroup = found.id;
+    }
+    gb.querySelectorAll(".grp-btn").forEach(b=>{
+      b.classList.toggle("on", b.dataset.grp === activeGroup);
+    });
+
+    sb.innerHTML = "";
+    if(!activeGroup){ sb.style.display = "none"; return; }
+    const grp = GROUPS.find(g=>g.id===activeGroup);
+    if(!grp || grp.direct){ sb.style.display = "none"; return; }
+    sb.style.display = "flex";
+    grp.items.forEach(vn=>{
+      const orig = nav.querySelector(`[data-view="${vn}"]`);
+      if(!orig) return;
+      const btn = document.createElement("button");
+      btn.className = "sub-btn" + (orig.classList.contains("on") ? " on" : "");
+      btn.textContent = orig.textContent.trim();
+      btn.addEventListener("click", ()=> orig.click());
+      sb.appendChild(btn);
+    });
+  }
+
+  // ── 3) 표제(masthead) 숨김 ──────────────────────────
+  const MH_KEY = "seseol_masthead_hidden_v1";
+  function isMastheadHidden(){
+    try { return localStorage.getItem(MH_KEY) === "1"; } catch(e){ return false; }
+  }
+  function setMastheadHidden(v){
+    try { localStorage.setItem(MH_KEY, v ? "1" : "0"); } catch(e){}
+  }
+
+  function installMasthead(){
+    if(typeof entered !== "undefined" && !entered) return;
+    const m = document.querySelector(".masthead");
+    if(!m) return;
+
+    // 닫기(×) 버튼 부착 (중복 방지)
+    if(!m.querySelector(".masthead-close")){
+      const x = document.createElement("button");
+      x.className = "masthead-close";
+      x.textContent = "×";
+      x.title = "표제 숨기기";
+      x.setAttribute("aria-label","표제 숨기기");
+      x.addEventListener("click",(e)=>{
+        e.stopPropagation();
+        setMastheadHidden(true);
+        m.classList.add("mh-hidden");
+        ensureRestoreLink();
+      });
+      m.appendChild(x);
+    }
+
+    // 저장된 상태 반영
+    if(isMastheadHidden()){
+      m.classList.add("mh-hidden");
+      ensureRestoreLink();
+    } else {
+      m.classList.remove("mh-hidden");
+      const r = m.parentNode.querySelector(".masthead-restore");
+      if(r) r.remove();
+    }
+  }
+
+  function ensureRestoreLink(){
+    const m = document.querySelector(".masthead");
+    if(!m) return;
+    if(m.parentNode.querySelector(".masthead-restore")) return;
+    const r = document.createElement("button");
+    r.className = "masthead-restore";
+    r.textContent = "▸ 표제 다시 보기";
+    r.addEventListener("click",()=>{
+      setMastheadHidden(false);
+      m.classList.remove("mh-hidden");
+      r.remove();
+    });
+    m.parentNode.insertBefore(r, m.nextSibling);
+  }
+
+  // ── 4) render 후 매번 설치 ─────────────────────────
+  if(typeof render === "function"){
+    const _orig = render;
+    render = function(picks){
+      _orig(picks);
+      setTimeout(()=>{
+        installMasthead();
+        installGroupBar();
+      }, 0);
+    };
+  }
+  setTimeout(()=>{
+    installMasthead();
+    installGroupBar();
+  }, 0);
+
+  console.log("[Phase 12] 3그룹 메뉴 + 표제 숨김 작동 중");
+})();
+
+
 render([]);
 </script>
 </body>
