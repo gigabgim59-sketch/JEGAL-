@@ -3103,6 +3103,110 @@ const PHASE6_PERSON_NAMES = {
 })();
 
 
+/* ============================================================
+   Phase 15 : 「직전 부분으로」 뒤로가기 — 全 화면 확장
+   ─────────────────────────────────────────────────────────────
+   ▸ Phase 8 의 FAB(← 직전 위치로)을 그대로 쓰되, jumpToObject 뿐
+     아니라 序說·六門百科·三十六篇·주제·인물·무작위 사이의 移動,
+     편/주제/인물 선택, 무작위 뽑기, 검색 등 모든 화면 전환에서
+     直前 상태를 스택에 쌓아 한 단씩 되돌아갈 수 있게 한다.
+   ▸ Phase 8 가 nav-btn 클릭 시 스택을 비우던 동작은,
+     render 뒤에 直前 스냅샷을 다시 push 해 사실상 무력화한다.
+   ▸ Phase 8 의 restore() 가 호출돼 뒤로 갈 때는 push 하지 않는다.
+   ════════════════════════════════════════════════════════════ */
+(function(){
+  const back = window._navBackStack;
+  if(!back){ console.warn("[Phase 15] back stack 없음 — Phase 8 미작동"); return; }
+
+  let prevSnap = null;
+  let restoring = false;
+
+  function snap(){
+    return {
+      entered: (typeof entered !== "undefined" ? entered : true),
+      view: view,
+      liumenCat: (typeof liumenCat !== "undefined" ? liumenCat : null),
+      liumenExpanded: (typeof liumenExpanded !== "undefined" ? new Set(liumenExpanded) : null),
+      activeChapter: (typeof activeChapter !== "undefined" ? activeChapter : null),
+      activeTopic:   (typeof activeTopic   !== "undefined" ? activeTopic   : null),
+      activePerson:  (typeof activePerson  !== "undefined" ? activePerson  : null),
+      personSubGroup: window.personSubGroup || "all",
+      lastPicks: ((window._lastPicks)||[]).slice(),
+      scrollY: window.scrollY || document.documentElement.scrollTop || 0
+    };
+  }
+  function key(s){
+    if(!s) return "";
+    return [s.entered,s.view,s.liumenCat,s.activeChapter,s.activeTopic,
+            s.activePerson,s.personSubGroup,JSON.stringify(s.lastPicks)].join("|");
+  }
+  function syncBtn(){
+    const btn = document.querySelector(".fab-back");
+    const n   = document.querySelector(".fab-back-n");
+    if(!btn) return;
+    if(back.length > 0){
+      btn.classList.remove("hidden");
+      if(n) n.textContent = back.length > 1 ? `(${back.length})` : "";
+    } else {
+      btn.classList.add("hidden");
+      if(n) n.textContent = "";
+    }
+  }
+
+  // 뒤로가기 클릭 감지 → 그동안의 render 푸시를 억제
+  document.addEventListener("click", (e)=>{
+    const t = e.target;
+    if(t && t.closest && t.closest(".fab-back")){
+      restoring = true;
+      setTimeout(()=>{ restoring = false; }, 400);
+    }
+  }, true);
+  // ESC · Backspace 키 뒤로가기도 동일 처리
+  document.addEventListener("keydown", (e)=>{
+    if(e.key !== "Escape" && e.key !== "Backspace") return;
+    if(back.length === 0) return;
+    // 입력창에서 타이핑 중일 때는 무시 — Backspace 본연의 기능을 보존
+    const t = e.target;
+    const tag = (t && t.tagName) || "";
+    if(tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+    if(e.key === "Backspace") e.preventDefault();
+    restoring = true;
+    setTimeout(()=>{ restoring = false; }, 400);
+    // Phase 8 의 ESC 핸들러는 ESC 만 처리하므로, Backspace 는 여기서 직접 pop
+    if(e.key === "Backspace"){
+      const s = back.pop();
+      // Phase 8 의 restore 는 closure 안이라 직접 호출 불가 — fab-back 클릭을 합성
+      const fb = document.querySelector(".fab-back");
+      if(fb){
+        // 스택을 pop 했으니 다시 push 후 클릭(Phase 8 가 다시 pop 하도록)
+        if(s) back.push(s);
+        fb.click();
+      }
+    }
+  }, true);
+
+  // render 마지막 한 겹 더 감싼다 — Phase 8 의 nav-btn 클리어 뒤에 작동
+  const _rPrev = render;
+  render = function(picks){
+    _rPrev(picks);
+    setTimeout(()=>{
+      const cur = snap();
+      // 첫 진입(entry) 화면 → 본문 첫 화면 移動은 push 하지 않음(되돌아갈 의미 없음)
+      const meaningful = prevSnap && prevSnap.entered && cur.entered
+                         && key(prevSnap) !== key(cur);
+      if(!restoring && meaningful){
+        back.push(prevSnap);
+        if(back.length > 50) back.shift();
+      }
+      prevSnap = cur;
+      syncBtn();
+    }, 10); // Phase 8 의 syncBackBtn(setTimeout 0) 뒤에 동작하도록 약간 늦춤
+  };
+
+  console.log("[Phase 15] 全 화면 뒤로가기 확장 작동 중");
+})();
+
+
 render([]);
 </script>
 </body>
